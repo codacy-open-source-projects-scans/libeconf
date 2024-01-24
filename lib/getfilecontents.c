@@ -242,7 +242,6 @@ econf_err
 read_file(econf_file *ef, const char *file,
 	  const char *delim, const char *comment)
 {
-  char buf[BUFSIZ];
   char *current_group = NULL;
   char *current_comment_before_key = NULL;
   char *current_comment_after_value = NULL;
@@ -265,12 +264,13 @@ read_file(econf_file *ef, const char *file,
   }
   ef->delimiter = *delim;
 
-  while (fgets(buf, BUFSIZ-1, kf)) {
+  char *buf = malloc(BUFSIZ*sizeof(char));
+  size_t max_size = BUFSIZ;
+  while (getline(&buf, &max_size, kf) >0) {
     char *p, *name, *data = NULL;
     bool quote_seen = false, delim_seen = false;
     char *org_buf __attribute__ ((__cleanup__(free_buffer))) = strdup(buf);
 
-    buf[BUFSIZ-1] = '\0';
     line++;
     last_scanned_line_nr = line;
 
@@ -287,7 +287,7 @@ read_file(econf_file *ef, const char *file,
     while (*name && isspace((unsigned)*name))
       name++;
 
-    /* go through all comment characters and check, if one of could be found */
+    /* go through all comment characters and check if one of them could be found */
     for (size_t i = 0; i < strlen(comment); i++) {
       p = strchr(name, comment[i]);
       if (p)
@@ -301,8 +301,10 @@ read_file(econf_file *ef, const char *file,
 	    char *content = current_comment_before_key;
 	    int ret = asprintf(&current_comment_before_key, "%s\n%s", content,
 			       p+1);
-	    if(ret<0)
+	    if(ret<0) {
+	      free(buf);
 	      return ECONF_NOMEM;
+	    }
 	    free(content);
 	  } else {
 	    current_comment_before_key = strdup(p+1);
@@ -315,8 +317,10 @@ read_file(econf_file *ef, const char *file,
 	    char *content = current_comment_after_value;
 	    int ret = asprintf(&current_comment_after_value, "%s\n%s", content,
 			       p+1);
-	    if(ret<0)
+	    if(ret<0) {
+	      free(buf);
 	      return ECONF_NOMEM;
+	    }
 	    free(content);
 	  } else {
 	    current_comment_after_value = strdup(p+1);
@@ -366,7 +370,7 @@ read_file(econf_file *ef, const char *file,
       continue;
     }
 
-    /* Valid delimters are defined */
+    /* Valid delimiters are defined */
     /* go to the end of the name */
     data = name;
     while (*data && !(isspace((unsigned)*data) ||
@@ -437,17 +441,17 @@ read_file(econf_file *ef, const char *file,
       }
     }
     
-    /* Go on. It is not an multiline entry */
+    /* Go on. It is not a multiline entry */
     
     if (!*name || data == name)
       continue;
 
     if (*data == '\0')
-      /* No seperator -> return NULL pointer, there is no value,
+      /* No separator -> return NULL pointer, there is no value,
 	 not even an empty key */
       data = NULL;
     else {
-      /* go to the begin of the value */
+      /* go to the beginning of the value */
       while (*data && isspace((unsigned)*data))
 	data++;
       if (!has_wsp && !delim_seen) {
@@ -492,14 +496,14 @@ read_file(econf_file *ef, const char *file,
 	p--;
       while (p > data && (isspace((unsigned)*p)))
 	p--;
-      /* Strip double quotes only if both leading and trainling quote exist. */
+      /* Strip double quotes only if both leading and trailing quotes exist. */
       if (p >= data && quote_seen) {
 	if (*p == '"')
 	  p--;
 	else
 	  data--;
       }
-      if (*(p + 1) != '\0')
+      if (*p != '\0' && *(p + 1) != '\0')
 	*(p + 1) = '\0';
     }
 
@@ -516,6 +520,7 @@ read_file(econf_file *ef, const char *file,
   }
 
  out:
+  free(buf);
   fclose (kf);
   if (current_group)
     free (current_group);
