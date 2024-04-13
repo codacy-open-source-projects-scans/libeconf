@@ -7,7 +7,7 @@ project(
 		  'b_pie=true',
 		  'warning_level=3',],
   license : 'MIT',
-  version : '0.6.2',
+  version : '0.6.3',
 )
 
 cc = meson.get_compiler('c')
@@ -76,6 +76,11 @@ pkg.generate(
   description : 'highly flexible library to manage key=value configuration files',
   version : meson.project_version(),
 )
+
+libeconf_static = static_library('econf',
+			libeconf_src,
+			include_directories : inc,
+			install : true)
 
 libeconf_dep = declare_dependency(
   link_with : lib,
