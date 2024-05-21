@@ -1052,6 +1052,10 @@ extern void econf_freeFile(econf_file *key_file);
  *    will be joined to one entry.
  *  PYTHON_STYLE  (default 0)
  *    E.G. Identations will be handled like multiline entries.
+ *
+ * CAUTION: Setting options is NOT TRHEAD-SAFE because they are set
+ *          globally in libeconf.
+ *
  */
 extern void econf_set_opt(const char *option);
 
@@ -1123,6 +1127,9 @@ econf_reset_security_settings(void);
  *           "<default_dirs>/<config_name>/"
  *
  * @return econf_err ECONF_SUCCESS or error code
+ *
+ * CAUTION: Setting options is NOT TRHEAD-SAFE because they are set
+ *          globally in libeconf.
  *
  */
 extern econf_err econf_set_conf_dirs(const char **dir_postfix_list);
