@@ -51,11 +51,8 @@ typedef struct econf_file {
      within the struct. If length would exceed alloc_length it's increased.  */
   size_t length, alloc_length;
   /* delimiter: char used to assign a value to a key
-     comment: Used to specify which char to regard as comment indicator.  */
-  /* TODO: Should eventually be of type *char to allow multiple character
-           delimiters and comment indicators.
-           Alternatively they could be removed from the struct and be passed
-           as parameters to the read/write functions for config files  */
+     comment: Used to specify which char to regard as comment indicator.
+     These two variables will be used for writing the entries into a file only. */
   char delimiter, comment;
   /* Binary variable to determine whether econf_file should be freed after
      being merged with another econf_file.  */
@@ -91,8 +88,7 @@ econf_err key_file_append(econf_file *key_file);
 
 /* Functions used to get a set value from key_file depending on num.
    Expects a pointer of fitting type and writes the result into the pointer.
-   num corresponds to the respective instance of the file_entry array.
-   TODO: Error checking and defining return value on error needs to done.  */
+   num corresponds to the respective instance of the file_entry array. */
 econf_err getIntValueNum(econf_file key_file, size_t num, int32_t *result);
 econf_err getInt64ValueNum(econf_file key_file, size_t num, int64_t *result);
 econf_err getUIntValueNum(econf_file key_file, size_t num, uint32_t *result);
