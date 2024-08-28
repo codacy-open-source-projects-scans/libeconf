@@ -40,8 +40,8 @@
 #define CONFIG_DIRS "CONFIG_DIRS="
 
 // configuration directories format
-char **conf_dirs = {NULL}; // see econf_set_conf_dirs
-int conf_count = 0;
+static char **conf_dirs = {NULL}; // see econf_set_conf_dirs
+static int conf_count = 0;
 
 void econf_requireOwner(uid_t owner)
 {
@@ -517,7 +517,7 @@ econf_err econf_readDirs(econf_file **result,
 				NULL, NULL);
 }
 
-// Write content of a econf_file struct to specified location
+// Write content of an econf_file struct to specified location
 econf_err econf_writeFile(econf_file *key_file, const char *save_to_dir,
 			       const char *file_name) {
   if (!key_file)
