@@ -43,7 +43,7 @@ enum econf_err {
   ECONF_SUCCESS = 0,
   /** Generic Error */
   ECONF_ERROR = 1,
-  /** Out of memory */  
+  /** Out of memory */
   ECONF_NOMEM = 2,
   /** Config file not found */
   ECONF_NOFILE = 3,
@@ -656,6 +656,8 @@ extern econf_err econf_newKeyFile(econf_file **result, char delimiter, char comm
  *           "<default_dirs>/<config_name>.conf.d/"
  *           "<default_dirs>/<config_name>.d/"
  *           "<default_dirs>/<config_name>/"
+ *  ROOT_PREFIX (default \<empty\>)
+ *    Directory prefix used for all search directories if specified.
  *
  * e.g. Parsing configuration files written in python style:
  *
@@ -1086,15 +1088,31 @@ extern void econf_errLocation (char **filename, uint64_t *line_nr);
  * @return void
  *
  */
-extern void econf_freeArray(char **array);
+extern char **econf_freeArray(char **array);
 
-/** @brief Free memory allocated by e.g. econf_readFile(), econf_readDirs(),...
+/* helper so that __attribute__((cleanup(econf_freeArrayp)) may be used */
+static __inline__ void econf_freeArrayp(char ***array) {
+  if (*array)
+    *array = econf_freeArray(*array);
+}
+
+/** @brief Free memory allocated and returned by
+ *         econf_readFile(), econf_readFileWithCallback,
+ *         econf_readDirs(), econf_readDirsWithCallback,
+ *         econf_readDirsHistory, econf_readDirsHistoryWithCallback,
+ *         econf_readConfig, econf_readConfigWithCallback
  *
  * @param key_file allocated data
  * @return void
  *
  */
-extern void econf_freeFile(econf_file *key_file);
+extern econf_file *econf_freeFile(econf_file *key_file);
+
+/* helper so that __attribute__((cleanup(econf_freeFilep)) may be used */
+static __inline__ void econf_freeFilep(econf_file **key_file) {
+  if (*key_file)
+    *key_file = econf_freeFile(*key_file);
+}
 
 /** @brief All parsed files require this user permission.
  *         DEPRECATED: Use the callback in econf_readFileWithCallback or

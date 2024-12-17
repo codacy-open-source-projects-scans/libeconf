@@ -30,6 +30,7 @@
 #include "mergefiles.h"
 #include "readconfig.h"
 
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -38,6 +39,7 @@
 
 #define PARSING_DIRS "PARSING_DIRS="
 #define CONFIG_DIRS "CONFIG_DIRS="
+#define ROOT_PREFIX "ROOT_PREFIX="
 
 // configuration directories format
 static char **conf_dirs = {NULL}; // see econf_set_conf_dirs
@@ -149,7 +151,7 @@ econf_newKeyFile_with_options(econf_file **result, const char *options) {
   (*result)->conf_count = 0;
   (*result)->groups = NULL;
   (*result)->group_count = 0;
-  
+  (*result)->root_prefix = NULL;
 
   if (options == NULL || strlen(options) == 0)
     return ECONF_SUCCESS;
@@ -207,6 +209,11 @@ econf_newKeyFile_with_options(econf_file **result, const char *options) {
       continue;
     }
 
+    if (strncmp(o_opt, ROOT_PREFIX, strlen(ROOT_PREFIX)) == 0) {
+      (*result)->root_prefix = strdup(o_opt + strlen(ROOT_PREFIX));
+      continue;
+    }
+
     /* not found --> break */
     free(begin_opt);
     return ECONF_OPTION_NOT_FOUND;
@@ -260,8 +267,7 @@ econf_err econf_readFileWithCallback(econf_file **key_file, const char *file_nam
 				  callback,
 				  callback_data);
   if (t_err != ECONF_SUCCESS) {
-    econf_freeFile(*key_file);
-    *key_file = NULL;
+    *key_file = econf_freeFile(*key_file);
   }
   return t_err;
 }
@@ -325,14 +331,16 @@ econf_err econf_readConfigWithCallback(econf_file **key_file,
 				       bool (*callback)(const char *filename, const void *data),
 				       const void *callback_data)
 {
-  char usr_dir[PATH_MAX];
-  char run_dir[PATH_MAX];
-  char etc_dir[PATH_MAX];
+  char *usr_dir = NULL;
+  char *run_dir = NULL;
+  char *etc_dir = NULL;
   econf_err ret = ECONF_SUCCESS;
+  int init_keyfile = 0;
 
   if (*key_file == NULL) {
     if ((ret = econf_newKeyFile_with_options(key_file, "")) != ECONF_SUCCESS)
       return ret;
+    init_keyfile = 1;
   }
 
   if (config_name == NULL || strlen(config_name) == 0) {
@@ -351,27 +359,62 @@ econf_err econf_readConfigWithCallback(econf_file **key_file,
   if (usr_subdir == NULL)
     usr_subdir = "";
 
-#ifdef TESTSDIR
-  if (project != NULL) {
-    snprintf(usr_dir, sizeof(usr_dir), "%s%s/%s", TESTSDIR, usr_subdir, project);
-    snprintf(run_dir, sizeof(run_dir), "%s%s/%s", TESTSDIR, DEFAULT_RUN_SUBDIR, project);
-    snprintf(etc_dir, sizeof(etc_dir), "%s%s/%s", TESTSDIR, DEFAULT_ETC_SUBDIR, project);
+  int re = 0;
+  if ((*key_file)->root_prefix) {
+    if (project != NULL) {
+      re = asprintf(&usr_dir, "%s/%s/%s", (*key_file)->root_prefix, usr_subdir, project);
+    } else {
+      re = asprintf(&usr_dir, "%s%s", (*key_file)->root_prefix, usr_subdir);
+    }
   } else {
-    snprintf(usr_dir, sizeof(usr_dir), "%s%s", TESTSDIR, usr_subdir);
-    snprintf(run_dir, sizeof(run_dir), "%s%s", TESTSDIR, DEFAULT_RUN_SUBDIR);
-    snprintf(etc_dir, sizeof(etc_dir), "%s%s", TESTSDIR, DEFAULT_ETC_SUBDIR);
+    if (project != NULL) {
+      re = asprintf(&usr_dir,  "%s/%s", usr_subdir, project);
+    } else {
+      re = asprintf(&usr_dir, "%s", usr_subdir);
+    }
   }
-#else
-  if (project != NULL) {
-    snprintf(usr_dir, sizeof(usr_dir), "%s/%s", usr_subdir, project);
-    snprintf(run_dir, sizeof(run_dir), "%s/%s", DEFAULT_RUN_SUBDIR, project);
-    snprintf(etc_dir, sizeof(etc_dir), "%s/%s", DEFAULT_ETC_SUBDIR, project);
+
+  if (re < 0)
+    return ECONF_NOMEM;
+
+  if ((*key_file)->root_prefix) {
+    if (project != NULL) {
+      re = asprintf(&run_dir, "%s/%s/%s", (*key_file)->root_prefix, DEFAULT_RUN_SUBDIR, project);
+    } else {
+      re = asprintf(&run_dir, "%s%s", (*key_file)->root_prefix, DEFAULT_RUN_SUBDIR);
+    }
   } else {
-    snprintf(usr_dir, sizeof(usr_dir), "%s", usr_subdir);
-    snprintf(run_dir, sizeof(run_dir), "%s", DEFAULT_RUN_SUBDIR);
-    snprintf(etc_dir, sizeof(etc_dir), "%s", DEFAULT_ETC_SUBDIR);
+    if (project != NULL) {
+      re = asprintf(&run_dir, "%s/%s", DEFAULT_RUN_SUBDIR, project);
+    } else {
+      re = asprintf(&run_dir, "%s", DEFAULT_RUN_SUBDIR);
+    }
   }
-#endif
+
+  if (re < 0) {
+    free(usr_dir);
+    return ECONF_NOMEM;
+  }
+
+  if ((*key_file)->root_prefix) {
+    if (project != NULL) {
+      re = asprintf(&etc_dir, "%s/%s/%s", (*key_file)->root_prefix, DEFAULT_ETC_SUBDIR, project);
+    } else {
+      re = asprintf(&etc_dir,  "%s%s", (*key_file)->root_prefix, DEFAULT_ETC_SUBDIR);
+    }
+  } else {
+    if (project != NULL) {
+      re = asprintf(&etc_dir, "%s/%s", DEFAULT_ETC_SUBDIR, project);
+    } else {
+      re = asprintf(&etc_dir, "%s", DEFAULT_ETC_SUBDIR);
+    }
+  }
+
+  if (re < 0) {
+    free(usr_dir);
+    free(run_dir);
+    return ECONF_NOMEM;
+  }
 
   if ((*key_file)->parse_dirs_count == 0) {
     /* taking default */
@@ -393,8 +436,15 @@ econf_err econf_readConfigWithCallback(econf_file **key_file,
 			       callback,
 			       callback_data);
 
+  if (init_keyfile && ret != ECONF_SUCCESS)
+    *key_file = econf_free(*key_file);
+
+  free(usr_dir);
+  free(run_dir);
+  free(etc_dir);
+
   return ret;
-}  
+}
 
 
 econf_err econf_readConfig (econf_file **key_file,
@@ -451,7 +501,7 @@ econf_err econf_readDirsHistoryWithCallback(econf_file ***key_files,
 						 conf_count,
 						 callback,
 						 callback_data);
-   econf_freeArray(parse_dirs);
+   parse_dirs = econf_freeArray(parse_dirs);
    return ret;
 }
 
@@ -482,7 +532,7 @@ econf_err econf_readDirsHistory(econf_file ***key_files,
 						false, false, /*join_same_entries, python_style*/
 						conf_dirs, conf_count,
 						NULL, NULL);
-  econf_freeArray(parse_dirs);
+  parse_dirs = econf_freeArray(parse_dirs);
   return ret;
 }
 
@@ -558,7 +608,13 @@ econf_err econf_writeFile(econf_file *key_file, const char *save_to_dir,
 
   /* Checking if the directory exists*/
   struct stat stats;
-  stat(save_to_dir, &stats);
+  if (stat(save_to_dir, &stats) < 0)
+    {
+      if (errno == ENOENT)
+	return ECONF_NOFILE;
+      else
+	return ECONF_ERROR;
+    }
   if (!S_ISDIR(stats.st_mode))
     return ECONF_NOFILE;
 
@@ -773,31 +829,28 @@ libeconf_setValue(Bool, const char *, value)
 
 /* --- DESTROY FUNCTIONS --- */
 
-void econf_freeArray(char** array) {
-  if (!array) { return; }
+char **econf_freeArray(char** array) {
+  if (!array) { return NULL; }
   char *tmp = (char*) array;
   while (*array) {
     free(*array++);
   }
   free(tmp);
+  return NULL;
 }
 
 // Free memory allocated by key_file
-void econf_freeFile(econf_file *key_file) {
+econf_file *econf_freeFile(econf_file *key_file) {
   if (!key_file)
-    return;
+    return NULL;
 
   if (key_file->file_entry)
   {
     for (size_t i = 0; i < key_file->alloc_length; i++) {
-      if (key_file->file_entry[i].key)
-	free(key_file->file_entry[i].key);
-      if (key_file->file_entry[i].value)
-	free(key_file->file_entry[i].value);
-      if (key_file->file_entry[i].comment_before_key)
-	free(key_file->file_entry[i].comment_before_key);
-      if (key_file->file_entry[i].comment_after_value)
-	free(key_file->file_entry[i].comment_after_value);
+      free(key_file->file_entry[i].key);
+      free(key_file->file_entry[i].value);
+      free(key_file->file_entry[i].comment_before_key);
+      free(key_file->file_entry[i].comment_after_value);
     }
     free(key_file->file_entry);
   }
@@ -808,5 +861,8 @@ void econf_freeFile(econf_file *key_file) {
   econf_freeArray(key_file->parse_dirs);
   econf_freeArray(key_file->groups);
   econf_freeArray(key_file->conf_dirs);
+  free(key_file->root_prefix);
   free(key_file);
+
+  return NULL;
 }

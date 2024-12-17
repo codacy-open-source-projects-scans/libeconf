@@ -2,6 +2,8 @@
 #  include <config.h>
 #endif
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -48,7 +50,7 @@ check_key(econf_file *key_file, char *key, char *expected_val)
 int
 main(void)
 {
-  econf_file *key_file = (econf_file *)-1;
+  econf_file *key_file = NULL;
   int retval = 0;
   econf_err error;
 

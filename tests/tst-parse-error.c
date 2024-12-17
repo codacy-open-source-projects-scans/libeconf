@@ -2,6 +2,8 @@
 #  include <config.h>
 #endif
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -14,7 +16,7 @@
 int
 main(void)
 {
-  econf_file *key_file = (econf_file *)-1;
+  econf_file *key_file = NULL;
   econf_err error;
   char *filename = NULL;
   uint64_t line_nr = 0;

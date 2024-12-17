@@ -2,15 +2,18 @@
 #  include <config.h>
 #endif
 
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
 #include <stdio.h>
 #include <string.h>
-
 #include "libeconf.h"
+bool callback_without_error(const char *filename, const void *data);
+bool callback_with_error(const char *filename, const void *data);
 
 /* Test case:
-   Reading a file from /usr/lib and /etc which has no suffix.
+
+   /usr/etc/environment exists
+   /usr/etc/environment.d/10-pallas.conf exists
+
+   libeconf should read these files and return one entry.
 */
 
 static int
@@ -34,8 +37,7 @@ check_key(econf_file *key_file, char *key, char *expected_val)
     }
   if (strcmp (val, expected_val) != 0)
     {
-      fprintf (stderr, "ERROR: %s is \"%s\" instead of \"%s\".\n",
-	       key, val, expected_val);
+      fprintf (stderr, "ERROR: %s is not \"%s\"\n", key, expected_val);
       return 1;
     }
 
@@ -51,18 +53,27 @@ main(void)
   int retval = 0;
   econf_err error;
 
-  error = econf_readDirs (&key_file,
-				    TESTSDIR"tst-without-suffix/usr/lib",
-				    TESTSDIR"tst-without-suffix/etc",
-				    "os-release", NULL, "=", "#");
+  if ((error = econf_newKeyFile_with_options(&key_file, "ROOT_PREFIX="TESTSDIR)))
+    {
+      fprintf (stderr, "ERROR: couldn't allocate new file: %s\n",
+	       econf_errString(error));
+      return 1;
+    }
+  
+  error = econf_readConfig (&key_file,
+	                    NULL,
+                            "/usr/etc",
+			    "environment",
+			    "", "=", "#");
+
   if (error)
     {
-      fprintf (stderr, "ERROR: econf_readDirs: %s\n",
+      fprintf (stderr, "ERROR: econf_readConfig: %s\n",
 	       econf_errString(error));
       return 1;
     }
 
-  if (check_key(key_file, "VERSION", "15.2") != 0)
+  if (check_key(key_file, "Y2STYLE", "dark.qss") != 0)
     retval = 1;
 
   econf_free (key_file);

@@ -108,7 +108,8 @@ size_t add_new_groups(econf_file *dest_kf, struct file_entry **fe,
       if (new_key)
 	(*fe)[added_keys++] = cpy_file_entry(dest_kf, ef->file_entry[i]);
     }
-    *fe = realloc(*fe, added_keys * sizeof(struct file_entry));
+    if (added_keys > 0)
+      *fe = realloc(*fe, (added_keys) * sizeof(struct file_entry));
   }
   return added_keys;
 }
@@ -131,7 +132,8 @@ check_conf_dir(econf_file ***key_files, size_t *size, const char *path,
       size_t lenstr = strlen(de[i]->d_name);
       size_t lensuffix = strlen(config_suffix);
       if (lensuffix < lenstr &&
-          strncmp(de[i]->d_name + lenstr - lensuffix, config_suffix, lensuffix) == 0) {
+          strncmp(de[i]->d_name + lenstr - lensuffix, config_suffix, lensuffix) == 0 &&
+	  strcmp(de[i]->d_name,".") != 0 && strcmp(de[i]->d_name,"..") != 0) {
         char *file_path = combine_strings(path, de[i]->d_name, '/');
         econf_file *key_file = NULL;
 	if ((error = econf_newKeyFile_with_options(&key_file, "")) != ECONF_SUCCESS)
@@ -207,7 +209,7 @@ econf_err merge_econf_files(econf_file **key_files, econf_file **merged_files) {
     char * current_file = basename((*key_files)->path);
 
     /* key_files are already sorted. If there is a file with the same name with
-       a higher priority, the current file will be ignored. 
+       a higher priority, the current file will be ignored.
        e.g. /usr/etc/shells.d/tcsh will not be merged if /etc/shells.d/tcsh exists.
     */
     while (*double_key_files) {
@@ -216,15 +218,15 @@ econf_err merge_econf_files(econf_file **key_files, econf_file **merged_files) {
 	  strcmp(current_file, compare_file) == 0) {
 	break;
       }
-      double_key_files++;	    
+      double_key_files++;
     }
-    
+
     if (*double_key_files == NULL) {
       error = econf_mergeFiles(merged_files, *merged_files, *key_files);
       if (error || *merged_files == NULL)
         return error;
       (*merged_files)->on_merge_delete = 1;
-      if(tmp->on_merge_delete) { econf_free(tmp); }      
+      if(tmp->on_merge_delete) { econf_free(tmp); }
     }
 
     if((*key_files)->on_merge_delete) { econf_free(*key_files); }
