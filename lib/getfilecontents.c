@@ -146,7 +146,7 @@ store (econf_file *ef, const char *group, const char *key,
       return ECONF_MISSING_DELIMITER;
     }
 
-    if (append_entry && ef->python_style == true) {
+    if (ef->python_style == true) {
       /* ignore space at the beginning of the line because it is the indentation of python style */
       while (*value && isspace((unsigned)*value))
         value++;
@@ -182,7 +182,7 @@ store (econf_file *ef, const char *group, const char *key,
       }
       if(ret<0)
 	return ECONF_NOMEM;
-    }      
+    }
 
     return ECONF_SUCCESS;
   }
@@ -346,9 +346,9 @@ read_file(econf_file *ef, const char *file,
   }
   ef->delimiter = *delim;
 
-  char *buf = malloc(BUFSIZ*sizeof(char));
   size_t max_size = BUFSIZ;
-  while (getline(&buf, &max_size, kf) >0) {
+  char *buf = malloc(max_size * sizeof(char));
+  while (getline(&buf, &max_size, kf) != -1) {
     char *p, *name, *data = NULL;
     bool quote_seen = false, delim_seen = false;
     char *org_buf __attribute__ ((__cleanup__(free_buffer))) = strdup(buf);
@@ -371,10 +371,10 @@ read_file(econf_file *ef, const char *file,
 
     /* go through all comment characters and check if one of them could be found */
     for (size_t i = 0; i < strlen(comment); i++) {
-      p = strrchr(name, comment[i]);
+      p = strchr(name, comment[i]);
       if (p)
       {
-	if(p==name)
+	if (p==name)
 	{
 	  /* Comment is defined in the line before the key/value line */
 	  if (current_comment_before_key)
@@ -383,7 +383,7 @@ read_file(econf_file *ef, const char *file,
 	    char *content = current_comment_before_key;
 	    int ret = asprintf(&current_comment_before_key, "%s\n%s", content,
 			       p+1);
-	    if(ret<0) {
+	    if (ret<0) {
 	      free(buf);
 	      return ECONF_NOMEM;
 	    }
@@ -405,25 +405,37 @@ read_file(econf_file *ef, const char *file,
 	  if (*data && strchr(delim, *data) != NULL)
 	    delim_found = false;
 
-	  if ( first_quote==NULL || /* no quote */
-	       (first_quote!=last_quote && last_quote<p) || /* comment is in string included */
-	       (first_quote==last_quote && last_quote<p && !delim_found)) /* multiline with one quote */
-	  {
-	    if (current_comment_after_value)
+	  while (p) {
+	    /* going through all comments hits and find the first one */
+	    /* who i not inside of two quotes */
+	    if ( first_quote==NULL || /* no quote */
+		 (first_quote!=last_quote && last_quote<p) || /* comment is in string included */
+		 (first_quote==last_quote && last_quote<p && !delim_found)) /* multiline with one quote */
 	    {
-	      /* appending */
-	      char *content = current_comment_after_value;
-	      int ret = asprintf(&current_comment_after_value, "%s\n%s", content,
-			       p+1);
-	      if(ret<0) {
-	        free(buf);
-	        return ECONF_NOMEM;
+	      if (current_comment_after_value)
+	      {
+	        /* appending */
+	        char *content = current_comment_after_value;
+	        int ret = asprintf(&current_comment_after_value, "%s\n%s", content,
+				   p+1);
+	        if(ret<0) {
+	          free(buf);
+	          return ECONF_NOMEM;
+	        }
+	        free(content);
+	      } else {
+	        current_comment_after_value = strdup(p+1);
 	      }
-	      free(content);
+	      *p = '\0';
 	    } else {
-	      current_comment_after_value = strdup(p+1);
+	      p++;
 	    }
-	    *p = '\0';
+	    /* find next comment flag */
+	    for (size_t k = 0; k < strlen(comment); k++) {
+	      p = strchr(p, comment[k]);
+	      if (p)
+		break;
+	    }
 	  }
 	}
       }
@@ -531,7 +543,7 @@ read_file(econf_file *ef, const char *file,
 	  }
 	}
 	/* removing \n at the end of the line */
-	if( org_buf[strlen(org_buf)-1] == '\n' )
+	if (strlen(org_buf) > 0 && org_buf[strlen(org_buf)-1] == '\n' )
 	  org_buf[strlen(org_buf)-1] = 0;
 	retval = store(ef, current_group, name, org_buf, line,
 		       current_comment_before_key, current_comment_after_value,
@@ -546,9 +558,9 @@ read_file(econf_file *ef, const char *file,
 	continue;
       }
     }
-    
+
     /* Go on. It is not a multiline entry */
-    
+
     if (!*name || data == name)
       continue;
 
@@ -620,7 +632,7 @@ read_file(econf_file *ef, const char *file,
     free(current_comment_before_key);
     current_comment_before_key = NULL;
     free(current_comment_after_value);
-    current_comment_after_value = NULL;    
+    current_comment_after_value = NULL;
     if (retval)
       goto out;
   }

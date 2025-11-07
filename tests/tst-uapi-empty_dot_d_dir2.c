@@ -4,13 +4,18 @@
 
 #include <stdio.h>
 #include <string.h>
-
 #include "libeconf.h"
+bool callback_without_error(const char *filename, const void *data);
+bool callback_with_error(const char *filename, const void *data);
 
 /* Test case:
 
-   variable contains comment character in a quoted string
+   /etc/environment which is empty
+   /usr/etc/environment.d/a.conf which is empty
+   /usr/etc/environment.d/b.conf which is empty
+   /usr/etc/environment.d/c.conf which is NOT empty
 
+   libeconf should read these files and return one entry.
 */
 
 static int
@@ -34,7 +39,7 @@ check_key(econf_file *key_file, char *key, char *expected_val)
     }
   if (strcmp (val, expected_val) != 0)
     {
-      fprintf (stderr, "ERROR: %s is not \"%s\", got [%s]\n", key, expected_val, val);
+      fprintf (stderr, "ERROR: %s is not \"%s\"\n", key, expected_val);
       return 1;
     }
 
@@ -56,12 +61,13 @@ main(void)
 	       econf_errString(error));
       return 1;
     }
-
+  
   error = econf_readConfig (&key_file,
 	                    NULL,
-                            "",
-			    "env",
-			    "conf", "=", "#");
+                            "/usr/etc",
+			    "environment",
+			    "", "=", "#");
+
   if (error)
     {
       fprintf (stderr, "ERROR: econf_readConfig: %s\n",
@@ -69,13 +75,7 @@ main(void)
       return 1;
     }
 
-  if (check_key(key_file, "KEY1", "a#b") != 0)
-    retval = 1;
-  if (check_key(key_file, "KEY2", "a#b") != 0)
-    retval = 1;
-  if (check_key(key_file, "KEY3", "a") != 0)
-    retval = 1;
-  if (check_key(key_file, "KEY4", "test with #") != 0)
+  if (check_key(key_file, "Y2STYLE", "dark.qss") != 0)
     retval = 1;
 
   econf_free (key_file);

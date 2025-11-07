@@ -18,7 +18,7 @@ set(econf_HDRS defines.h
 	       readconfig.h
                )
 
-add_library(econf SHARED ${econf_SRCS} ${econf_HDRS}
+add_library(econf ${econf_SRCS} ${econf_HDRS}
                "${PROJECT_SOURCE_DIR}/include/libeconf.h" "${PROJECT_SOURCE_DIR}/include/libeconf_ext.h")
 
 target_include_directories(econf PUBLIC
@@ -33,9 +33,19 @@ set_target_properties(econf PROPERTIES
   C_STANDARD 11
   C_STANDARD_REQUIRED ON
   PUBLIC_HEADER "${PROJECT_SOURCE_DIR}/include/libeconf.h;${PROJECT_SOURCE_DIR}/include/libeconf_ext.h"
-  LINK_FLAGS "-Wl,--no-undefined -Wl,--version-script,\"${PROJECT_SOURCE_DIR}/lib/libeconf.map\""
+  LINK_FLAGS "-Wl,--no-undefined -Wl,--no-undefined-version -Wl,--version-script,\"${PROJECT_SOURCE_DIR}/lib/libeconf.map\""
 )
 
+if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+    set(PKG_CONFIG_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+else()
+    set(PKG_CONFIG_INCLUDEDIR "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+endif()
+if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+    set(PKG_CONFIG_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+else()
+    set(PKG_CONFIG_LIBDIR "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
+endif()
 # Install the library
 configure_file(${PROJECT_SOURCE_DIR}/cmake/libeconf.pc.in ${CMAKE_BINARY_DIR}/libeconf.pc @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/libeconf.pc

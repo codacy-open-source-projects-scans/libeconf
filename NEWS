@@ -1,3 +1,21 @@
+Version 0.8.0
+* New interface call: econf_setExtValue
+
+Version 0.7.10
+* Fixed core dump in econf_getStringValueDef (bnc#1247107).
+* CMake improvements
+
+Version 0.7.9
+* Comments can include comment character tag multiple time.
+* Fixed static library declaration in meason
+* Fixed versioning in cmake
+
+Version 0.7.8
+* Fix memory access if there are a comment character inside a comment.
+
+Version 0.7.7
+* Additional fix for parsing empty config files (bsc#1234405).
+
 Version 0.7.6
 * Do not parse files with name "." and ".." (bsc#1234405).
 * Fixed memory leak in econftool.

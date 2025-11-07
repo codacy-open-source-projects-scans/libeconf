@@ -7,7 +7,7 @@ project(
 		  'b_pie=true',
 		  'warning_level=3',],
   license : 'MIT',
-  version : '0.7.6',
+  version : '0.8.0',
 )
 
 cc = meson.get_compiler('c')
@@ -54,15 +54,20 @@ libeconf_src = files(
 example_src = ['example/example.c']
 econftool_src = ['util/econftool.c']
 
+possible_link_args = [
+      '-Wl,--no-undefined',
+      '-Wl,--no-undefined-version',
+      ]
+
 mapfile = 'lib/libeconf.map'
-version_flag = '-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfile)
+version_flag = ['-Wl,--version-script,@0@/@1@'.format(meson.current_source_dir(), mapfile)]
 
 lib = library(
   'econf',
   libeconf_src,
   include_directories : inc,
   install : true,
-  link_args : version_flag,
+  link_args : cc.get_supported_link_arguments(possible_link_args) + version_flag,
   link_depends : mapfile,
   version : meson.project_version(),
   soversion : '0',
@@ -76,11 +81,6 @@ pkg.generate(
   description : 'highly flexible library to manage key=value configuration files',
   version : meson.project_version(),
 )
-
-libeconf_static = static_library('econf',
-			libeconf_src,
-			include_directories : inc,
-			install : true)
 
 libeconf_dep = declare_dependency(
   link_with : lib,
